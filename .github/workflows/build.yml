@@ -22,14 +22,14 @@ jobs:
         call "%VS_PATH%\Common7\Tools\VsDevCmd.bat" -arch=x64
 
 
-    - name: Build x64 DLL
-      shell: cmd
-      run: |
-        call "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath > vs.txt
-        set /p VS_PATH=<vs.txt
-        call "%VS_PATH%\Common7\Tools\VsDevCmd.bat" -arch=x64
+ - name: Build x64 DLL
+  shell: cmd
+  run: |
+    call "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath > vs.txt
+    set /p VS_PATH=<vs.txt
+    call "%VS_PATH%\Common7\Tools\VsDevCmd.bat" -arch=x64
 
-        cl /LD /O2 /EHsc ImeState.cpp ole32.lib oleaut32.lib imm32.lib
+    cl /LD /O2 /EHsc ImeState.cpp ole32.lib oleaut32.lib imm32.lib user32.lib
 
 
     - name: Check DLL Architecture
