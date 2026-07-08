@@ -1,45 +1,92 @@
-name: Build ImeState DLL
+name: Build ImeState DLL x64
 
 on:
   workflow_dispatch:
 
+
 jobs:
+
   build:
 
     runs-on: windows-latest
 
+
     steps:
 
-    - name: Checkout
+
+    # 下载代码
+    - name: Checkout source
       uses: actions/checkout@v5
 
 
-    - name: Setup MSVC x64
+
+    # 查找 Visual Studio 并设置 x64 编译环境
+    - name: Setup MSVC x64 environment
       shell: cmd
       run: |
-        call "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath > vs.txt
-        set /p VS_PATH=<vs.txt
+
+        echo Finding Visual Studio...
+
+        call "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" ^
+          -latest ^
+          -property installationPath > vs_path.txt
+
+
+        set /p VS_PATH=<vs_path.txt
+
+
+        echo VS_PATH=%VS_PATH%
+
+
         call "%VS_PATH%\Common7\Tools\VsDevCmd.bat" -arch=x64
 
 
- - name: Build x64 DLL
-  shell: cmd
-  run: |
-    call "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath > vs.txt
-    set /p VS_PATH=<vs.txt
-    call "%VS_PATH%\Common7\Tools\VsDevCmd.bat" -arch=x64
 
-    cl /LD /O2 /EHsc ImeState.cpp ole32.lib oleaut32.lib imm32.lib user32.lib
-
-
-    - name: Check DLL Architecture
+    # 编译 DLL
+    - name: Build x64 DLL
       shell: cmd
       run: |
+
+        call "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" ^
+          -latest ^
+          -property installationPath > vs_path.txt
+
+
+        set /p VS_PATH=<vs_path.txt
+
+
+        call "%VS_PATH%\Common7\Tools\VsDevCmd.bat" -arch=x64
+
+
+
+        cl ^
+          /LD ^
+          /O2 ^
+          /EHsc ^
+          ImeState.cpp ^
+          ole32.lib ^
+          oleaut32.lib ^
+          imm32.lib ^
+          user32.lib
+
+
+
+    # 检查 DLL 架构
+    - name: Verify DLL architecture
+      shell: cmd
+      run: |
+
         dumpbin /headers ImeState.dll | findstr machine
 
 
-    - name: Upload DLL
+
+    # 上传生成结果
+    - name: Upload x64 DLL
       uses: actions/upload-artifact@v4
+
       with:
+
         name: ImeStateDLL-x64
-        path: ImeState.dll
+
+        path: |
+          ImeState.dll
