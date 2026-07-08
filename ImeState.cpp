@@ -1,207 +1,227 @@
 #include <windows.h>
 #include <msctf.h>
+#include <imm.h>
 #include <oleauto.h>
-#include <atomic>
-
 
 #pragma comment(lib,"ole32.lib")
 #pragma comment(lib,"oleaut32.lib")
-
-
-static std::atomic<int> g_state(0);
-
-
-
-int ReadTSFState()
-{
-    HRESULT hr;
-
-    bool init = false;
-
-
-    hr = CoInitializeEx(
-        nullptr,
-        COINIT_APARTMENTTHREADED
-    );
-
-
-    if(SUCCEEDED(hr))
-        init = true;
-
-
-
-    ITfThreadMgr* tm = nullptr;
-
-
-    hr = CoCreateInstance(
-        CLSID_TF_ThreadMgr,
-        nullptr,
-        CLSCTX_INPROC_SERVER,
-        IID_ITfThreadMgr,
-        (void**)&tm
-    );
-
-
-    if(FAILED(hr) || !tm)
-    {
-        if(init)
-            CoUninitialize();
-
-        return 0;
-    }
-
-
-
-    TfClientId id;
-
-
-    tm->Activate(
-        &id
-    );
-
-
-
-    ITfDocumentMgr* dm = nullptr;
-
-
-    tm->GetFocus(
-        &dm
-    );
-
-
-
-    if(!dm)
-    {
-        tm->Deactivate();
-        tm->Release();
-
-        if(init)
-            CoUninitialize();
-
-        return 0;
-    }
-
-
-
-    ITfContext* ctx=nullptr;
-
-
-    dm->GetTop(
-        &ctx
-    );
-
-
-    dm->Release();
-
-
-
-    if(!ctx)
-    {
-        tm->Deactivate();
-        tm->Release();
-
-        if(init)
-            CoUninitialize();
-
-        return 0;
-    }
-
-
-
-    ITfCompartmentMgr* cm=nullptr;
-
-
-    ctx->QueryInterface(
-        IID_ITfCompartmentMgr,
-        (void**)&cm
-    );
-
-
-    ctx->Release();
-
-
-
-    if(!cm)
-    {
-        tm->Deactivate();
-        tm->Release();
-
-        if(init)
-            CoUninitialize();
-
-        return 0;
-    }
-
-
-
-    ITfCompartment* cp=nullptr;
-
-
-    cm->GetCompartment(
-        GUID_COMPARTMENT_KEYBOARD_INPUTMODE_CONVERSION,
-        &cp
-    );
-
-
-    cm->Release();
-
-
-
-    int result=0;
-
-
-    if(cp)
-    {
-        VARIANT v;
-
-        VariantInit(&v);
-
-
-        cp->GetValue(
-            &v
-        );
-
-
-        if(v.vt==VT_I4)
-        {
-            if(v.lVal & TF_CONVERSIONMODE_NATIVE)
-                result=1;
-        }
-
-
-        VariantClear(
-            &v
-        );
-
-
-        cp->Release();
-    }
-
-
-
-    tm->Deactivate();
-    tm->Release();
-
-
-
-    if(init)
-        CoUninitialize();
-
-
-
-    return result;
-}
-
-
-
+#pragma comment(lib,"imm32.lib")
 
 
 extern "C"
 __declspec(dllexport)
 int GetIMEState()
 {
-    g_state =
-        ReadTSFState();
+    HWND hwnd =
+        GetForegroundWindow();
 
-    return g_state.load();
+
+    if(!hwnd)
+        return 0;
+
+
+
+    DWORD pid = 0;
+
+
+    DWORD tid =
+        GetWindowThreadProcessId(
+            hwnd,
+            &pid
+        );
+
+
+    if(!tid)
+        return 0;
+
+
+
+    DWORD currentTid =
+        GetCurrentThreadId();
+
+
+
+    bool attached = false;
+
+
+
+    if(currentTid != tid)
+    {
+        attached =
+            AttachThreadInput(
+                currentTid,
+                tid,
+                TRUE
+            );
+    }
+
+
+
+    int result = 0;
+
+
+
+    HRESULT hr =
+        CoInitializeEx(
+            nullptr,
+            COINIT_APARTMENTTHREADED
+        );
+
+
+
+    ITfThreadMgr* tm = nullptr;
+
+
+
+    hr =
+        CoCreateInstance(
+            CLSID_TF_ThreadMgr,
+            nullptr,
+            CLSCTX_INPROC_SERVER,
+            IID_ITfThreadMgr,
+            (void**)&tm
+        );
+
+
+
+    if(SUCCEEDED(hr) && tm)
+    {
+
+        TfClientId clientId = 0;
+
+
+        tm->Activate(
+            &clientId
+        );
+
+
+
+        ITfDocumentMgr* docMgr=nullptr;
+
+
+
+        tm->GetFocus(
+            &docMgr
+        );
+
+
+
+        if(docMgr)
+        {
+
+            ITfContext* ctx=nullptr;
+
+
+            docMgr->GetTop(
+                &ctx
+            );
+
+
+            docMgr->Release();
+
+
+
+            if(ctx)
+            {
+
+                ITfCompartmentMgr* mgr=nullptr;
+
+
+
+                ctx->QueryInterface(
+                    IID_ITfCompartmentMgr,
+                    (void**)&mgr
+                );
+
+
+
+                if(mgr)
+                {
+
+                    ITfCompartment* comp=nullptr;
+
+
+
+                    mgr->GetCompartment(
+                        GUID_COMPARTMENT_KEYBOARD_INPUTMODE_CONVERSION,
+                        &comp
+                    );
+
+
+
+                    if(comp)
+                    {
+
+                        VARIANT var;
+
+                        VariantInit(&var);
+
+
+
+                        comp->GetValue(
+                            &var
+                        );
+
+
+
+                        if(var.vt == VT_I4)
+                        {
+
+                            LONG mode =
+                                var.lVal;
+
+
+
+                            if(mode &
+                              TF_CONVERSIONMODE_NATIVE)
+                            {
+                                result = 1;
+                            }
+                        }
+
+
+
+                        VariantClear(
+                            &var
+                        );
+
+
+                        comp->Release();
+                    }
+
+
+
+                    mgr->Release();
+                }
+
+
+                ctx->Release();
+            }
+        }
+
+
+        tm->Deactivate();
+
+        tm->Release();
+    }
+
+
+
+    if(attached)
+    {
+        AttachThreadInput(
+            currentTid,
+            tid,
+            FALSE
+        );
+    }
+
+
+
+    if(SUCCEEDED(hr))
+        CoUninitialize();
+
+
+
+    return result;
 }
