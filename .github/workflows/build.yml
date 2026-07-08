@@ -1,5 +1,6 @@
 name: Build ImeState DLL x64
 
+
 on:
   workflow_dispatch:
 
@@ -14,18 +15,23 @@ jobs:
     steps:
 
 
-    # 下载代码
+    # ==========================
+    # 获取源码
+    # ==========================
     - name: Checkout source
       uses: actions/checkout@v5
 
 
 
-    # 查找 Visual Studio 并设置 x64 编译环境
-    - name: Setup MSVC x64 environment
+    # ==========================
+    # 编译 x64 DLL
+    # ==========================
+    - name: Build DLL x64
       shell: cmd
       run: |
 
         echo Finding Visual Studio...
+
 
         call "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" ^
           -latest ^
@@ -38,24 +44,15 @@ jobs:
         echo VS_PATH=%VS_PATH%
 
 
-        call "%VS_PATH%\Common7\Tools\VsDevCmd.bat" -arch=x64
 
-
-
-    # 编译 DLL
-    - name: Build x64 DLL
-      shell: cmd
-      run: |
-
-        call "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" ^
-          -latest ^
-          -property installationPath > vs_path.txt
-
-
-        set /p VS_PATH=<vs_path.txt
+        echo Initializing MSVC x64...
 
 
         call "%VS_PATH%\Common7\Tools\VsDevCmd.bat" -arch=x64
+
+
+
+        echo Building DLL...
 
 
 
@@ -71,17 +68,55 @@ jobs:
 
 
 
-    # 检查 DLL 架构
+        if not exist ImeState.dll (
+
+            echo ERROR: DLL not generated
+
+            exit /b 1
+        )
+
+
+
+        echo Build success
+
+
+
+
+
+    # ==========================
+    # 检查 DLL 是否 x64
+    # ==========================
     - name: Verify DLL architecture
       shell: cmd
       run: |
+
+
+        call "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" ^
+          -latest ^
+          -property installationPath > vs_path.txt
+
+
+
+        set /p VS_PATH=<vs_path.txt
+
+
+
+        call "%VS_PATH%\Common7\Tools\VsDevCmd.bat" -arch=x64
+
+
+
+        echo Checking architecture...
+
+
 
         dumpbin /headers ImeState.dll | findstr machine
 
 
 
-    # 上传生成结果
-    - name: Upload x64 DLL
+    # ==========================
+    # 上传 DLL
+    # ==========================
+    - name: Upload DLL Artifact
       uses: actions/upload-artifact@v4
 
       with:
@@ -89,4 +124,5 @@ jobs:
         name: ImeStateDLL-x64
 
         path: |
+
           ImeState.dll
