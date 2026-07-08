@@ -1,6 +1,5 @@
 name: Build ImeState DLL
 
-
 on:
   workflow_dispatch:
 
@@ -15,29 +14,25 @@ jobs:
     steps:
 
     - name: Checkout
-      uses: actions/checkout@v4
-
-
-
-    - name: Setup MSVC
-      shell: cmd
-      run: |
-        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat"
-
+      uses: actions/checkout@v5
 
 
     - name: Build DLL
       shell: cmd
       run: |
-        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat"
+
+        call "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath > vs.txt
+
+        set /p VS_PATH=<vs.txt
+
+        call "%VS_PATH%\Common7\Tools\VsDevCmd.bat"
+
         cl /LD /O2 ImeState.cpp ole32.lib oleaut32.lib
 
 
 
     - name: Upload DLL
       uses: actions/upload-artifact@v4
-
       with:
         name: ImeStateDLL
-        path:
-          ImeState.dll
+        path: ImeState.dll
